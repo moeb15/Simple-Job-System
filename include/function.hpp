@@ -56,8 +56,8 @@ public:
 
     TFunction(TFunction&& o) noexcept
     {
-        m_Instance = o.m_Instance;
-        m_Proxy = o.m_Proxy;
+        m_Instance = std::move(o.m_Instance);
+        m_Proxy = std::move(o.m_Proxy);
 
         o.m_Instance = nullptr;
         o.m_Proxy = nullptr;
@@ -67,8 +67,8 @@ public:
     {
         if (this != &o)
         {
-            m_Instance = o.m_Instance;
-            m_Proxy = o.m_Proxy;
+            m_Instance = std::move(o.m_Instance);
+            m_Proxy = std::move(o.m_Proxy);
 
             o.m_Instance = nullptr;
             o.m_Proxy = nullptr;
@@ -123,6 +123,8 @@ public:
         }
         return;
     }
+
+    inline bool IsValid() const { return m_Proxy != nullptr; }
 
 private:
     void* m_Instance{ nullptr };

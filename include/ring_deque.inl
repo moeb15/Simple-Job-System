@@ -1,15 +1,22 @@
 #include "ring_deque.hpp"
 
 template <typename T, u8 SizeLog2>
-bool TRingDeque<T, SizeLog2>::PushOwner(T* t)
+bool TRingDeque<T, SizeLog2>::Push(T* t)
 {
-    i64 bVal = m_Bottom.load(std::memory_order_relaxed);
-    i64 tVal = m_Top.load(std::memory_order_acquire);
+    // load using memory_order_relaxed since only the owner writes to bottom
+    u64 bVal = m_Bottom.load(std::memory_order_relaxed);
 
+    // load using memory_order_acqure to ensure we see the latest updates
+    // from thieves who may have incremented it
+    u64 tVal = m_Top.load(std::memory_order_acquire);
+
+    // deque is full
     if (bVal - tVal >= s_Size) return false;
 
     m_Buffer[bVal & s_IndexMask] = t;
 
+    // memory_order_release ensures that the write to the buffer
+    // happens before the update to the bottom is visble to others
     m_Bottom.store(bVal + 1, std::memory_order_release);
     return true;
 }
@@ -17,17 +24,35 @@ bool TRingDeque<T, SizeLog2>::PushOwner(T* t)
 template <typename T, u8 SizeLog2>
 T* TRingDeque<T, SizeLog2>::PopOwner()
 {
-    i64 bVal = m_Bottom.load(std::memory_order_relaxed) - 1;
+    u64 bVal = m_Bottom.load(std::memory_order_relaxed);
+
+    // check if empty
+    u64 tVal = m_Top.load(std::memory_order_acquire);
+    if(tVal >= bVal) return nullptr;
+
+    bVal--;
     m_Bottom.store(bVal, std::memory_order_relaxed);
+
+    // seq_cst fence ensures that the store to m_Bottom is globally
+    // visible before we load m_Top
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    i64 tVal = m_Top.load(std::memory_order_relaxed);
+
+    // reload m_Top
+    tVal = m_Top.load(std::memory_order_relaxed);
 
     if (tVal <= bVal)
     {
-        T* t = m_Buffer[bVal & s_IndexMask];
-        if (tVal != bVal) return t;
+        T* t{ nullptr };
+        // check if t is not the last item in the buffer
+        if (tVal != bVal)
+        {
+            t = m_Buffer[bVal & s_IndexMask];
+            m_Buffer[bVal & s_IndexMask] = nullptr;
+            return t;
+        }
 
-        i64 expected = tVal;
+        // check if m_Top was incremented by a thief concurrently
+        u64 expected = tVal;
         bool bSuccess = m_Top.compare_exchange_strong(
             expected,
             tVal + 1,
@@ -35,25 +60,35 @@ T* TRingDeque<T, SizeLog2>::PopOwner()
             std::memory_order_relaxed
         );
 
-        m_Bottom.store(bVal + 1, std::memory_order_relaxed);
-        return bSuccess ? t : nullptr;
-    }
+        if(bSuccess)
+        {
+            t = m_Buffer[tVal & s_IndexMask];
+            m_Buffer[tVal & s_IndexMask] = nullptr;
+        }
 
-    m_Bottom.store(bVal + 1, std::memory_order_relaxed);
-    return nullptr;
+        // restore m_Bottom to match the value stored in m_Top
+        m_Bottom.store(tVal + 1, std::memory_order_relaxed);
+        return t;
+    }
+    else
+    {
+        // if this is reached then a thief stole the item after we decremented bottom.
+        // the buffer is empty, restore m_Bottom
+        m_Bottom.store(tVal, std::memory_order_relaxed);
+        return nullptr;
+    }
 }
 
 template <typename T, u8 SizeLog2>
 T* TRingDeque<T, SizeLog2>::Steal()
 {
-    i64 tVal = m_Top.load(std::memory_order_acquire);
+    u64 tVal = m_Top.load(std::memory_order_acquire);
     std::atomic_thread_fence(std::memory_order_seq_cst);
-    i64 bVal = m_Bottom.load(std::memory_order_acquire);
+    u64 bVal = m_Bottom.load(std::memory_order_acquire);
 
     if (tVal < bVal)
     {
-        T* t = m_Buffer[tVal & s_IndexMask];
-        i64 expected = tVal;
+        u64 expected = tVal;
         bool bSuccess = m_Top.compare_exchange_strong(
             expected,
             tVal + 1,
@@ -61,7 +96,12 @@ T* TRingDeque<T, SizeLog2>::Steal()
             std::memory_order_relaxed
         );
 
-        return bSuccess ? t : nullptr;
+        if (bSuccess)
+        {
+            T* t = m_Buffer[tVal & s_IndexMask];
+            m_Buffer[tVal & s_IndexMask] = nullptr;
+            return t;
+        }
     }
     return nullptr;
 }

@@ -153,10 +153,6 @@ void JobScheduler::Enqueue(Job* job)
             {
                 Execute(j);
             }
-            else
-            {
-                std::this_thread::yield();
-            }
         }
 
         job->jobState.store(EJobState::Queued, std::memory_order_release);

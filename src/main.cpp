@@ -3,8 +3,8 @@
 #include "tests/test.hpp"
 #include <iostream>
 
-#define NUM_TESTS 10
-#define EMPTY_JOB_TEST 0
+#define NUM_TESTS 100
+#define EMPTY_JOB_TEST 1
 #define JOB_DEPENDENCY_TEST 1
 
 #if EMPTY_JOB_TEST
@@ -41,6 +41,8 @@ int main()
         delete testPtr;
         testPtr = nullptr;
     }
+
+    std::cin.get();
 
     JobScheduler::Get()->Shutdown();
     Timer::Get()->Shutdown();

@@ -4,7 +4,7 @@
 
 namespace
 {
-    constexpr u32 JOB_COUNT{ 1 << 12 };
+    constexpr u32 JOB_COUNT{ 1 << 16 };
 
     void EmptyJob(Job* j = nullptr, void* d = nullptr)
     {
@@ -38,7 +38,12 @@ void EmptyJobTest::Run()
     {
         JobScheduler::Get()->SubmitJob(jobFunc);
     }
-    JobScheduler::Get()->Wait();
+    
+    while(JobScheduler::Get()->IsBusy())
+    {
+        // do nothing
+    }
+
     i64 jobEnd = Timer::Get()->Now();
     f64 jobMs = Timer::Get()->DeltaMiliseconds(jobBegin, jobEnd);
     std::cout << "JobSystem Test Time: " << jobMs << " ms." << std::endl;

@@ -13,7 +13,7 @@ class TRingDeque
 {
     static_assert(SizeLog2 <= 16);
 public:
-    bool Push(T* t);
+    bool PushOwner(T* t);
     T* PopOwner();
     T* Steal();
 
@@ -21,6 +21,8 @@ private:
     static constexpr u32 s_Size{ 1 << SizeLog2 };
     static constexpr u32 s_IndexMask{ s_Size - 1 };
     
+    // aligning each member variable to the cache line size
+    // to prevent false sharing
     alignas(CACHE_LINE_SIZE) T* m_Buffer[s_Size]{};
     alignas(CACHE_LINE_SIZE) std::atomic<u64> m_Top{ 0 };
     alignas(CACHE_LINE_SIZE) std::atomic<u64> m_Bottom{ 0 };

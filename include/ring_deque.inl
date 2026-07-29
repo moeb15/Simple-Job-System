@@ -1,7 +1,7 @@
 #include "ring_deque.hpp"
 
 template <typename T, u8 SizeLog2>
-bool TRingDeque<T, SizeLog2>::Push(T* t)
+bool TRingDeque<T, SizeLog2>::PushOwner(T* t)
 {
     // load using memory_order_relaxed since only the owner writes to bottom
     u64 bVal = m_Bottom.load(std::memory_order_relaxed);
@@ -28,7 +28,7 @@ T* TRingDeque<T, SizeLog2>::PopOwner()
 
     // check if empty
     u64 tVal = m_Top.load(std::memory_order_acquire);
-    if(tVal >= bVal) return nullptr;
+    if (tVal >= bVal) return nullptr;
 
     bVal--;
     m_Bottom.store(bVal, std::memory_order_relaxed);
@@ -60,7 +60,7 @@ T* TRingDeque<T, SizeLog2>::PopOwner()
             std::memory_order_relaxed
         );
 
-        if(bSuccess)
+        if (bSuccess)
         {
             t = m_Buffer[tVal & s_IndexMask];
             m_Buffer[tVal & s_IndexMask] = nullptr;
@@ -73,7 +73,7 @@ T* TRingDeque<T, SizeLog2>::PopOwner()
     else
     {
         // if this is reached then a thief stole the item after we decremented bottom.
-        // the buffer is empty, restore m_Bottom
+        // the buffer is empty
         m_Bottom.store(tVal, std::memory_order_relaxed);
         return nullptr;
     }

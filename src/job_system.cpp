@@ -6,6 +6,8 @@ namespace
     constexpr u32 JOB_QUEUE_SIZE{ 1 << 9 };
     constexpr u32 MAX_BACKOFF_MICROSECONDS{ 1000 };
     JobScheduler* s_JobScheduler{ nullptr };
+
+    // https://blog.molecular-matters.com/2015/09/08/job-system-2-0-lock-free-work-stealing-part-2-a-specialized-allocator/
     thread_local u64 g_LocalIndex{ 0 };
     thread_local Job g_JobAllocator[JOB_ALLOCATOR_COUNT]{};
 
@@ -30,6 +32,8 @@ JobScheduler* JobScheduler::Get()
 
 bool JobScheduler::Initialize()
 {
+    m_IsRunning.store(true, std::memory_order_release);
+
     m_ThreadCount = (u32)std::max(1u, (u32)std::thread::hardware_concurrency() - 1);
     m_ThreadCount = (u32)std::min(m_ThreadCount, (u32)MAX_JOB_THREADS);
 
@@ -102,6 +106,11 @@ void JobScheduler::Wait()
     }
 }
 
+bool JobScheduler::IsBusy()
+{
+    return m_JobsInFlight.load(std::memory_order_acquire) > 0;
+}
+
 EJobState JobScheduler::GetJobState(Job* job)
 {
     JS_ASSERT(job);
@@ -140,14 +149,17 @@ void JobScheduler::Enqueue(Job* job)
         // if the global queue is full, have the main thread fetch jobs and execute them
         while (!m_GlobalQueue.PushOwner(job))
         {
-            if(Job* j = FetchJob(-1))
+            if (Job* j = FetchJob(-1))
             {
                 Execute(j);
+            }
+            else
+            {
+                std::this_thread::yield();
             }
         }
 
         job->jobState.store(EJobState::Queued, std::memory_order_release);
-        return;
     }
     m_WakeCV.notify_one();
 }
@@ -222,6 +234,7 @@ void JobScheduler::JobThreadFunc(i8 idx)
     {
         if (Job* job = FetchJob(idx))
         {
+            //printf("Worker %d executing job %p\n", idx, job);
             Execute(job);
         }
         else

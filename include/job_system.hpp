@@ -88,6 +88,8 @@ public:
      * @brief Waits for all jobs in flight to finish executing
      */
     void Wait();
+    
+    bool IsBusy();
     EJobState GetJobState(Job* job);
 
 private:

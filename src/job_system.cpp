@@ -77,11 +77,18 @@ Job* JobScheduler::SubmitJob(JobFunction func, std::initializer_list<Job*> prere
 
     if (paramData && paramDataSize)
     {
-        void* data = malloc(paramDataSize);
-        memcpy(data, paramData, paramDataSize);
-        newJob->paramData = data;
+        if (paramDataSize <= JOB_PARAM_BYTE_SIZE)
+        {
+            memcpy(&newJob->inlineData[0], paramData, paramDataSize);
+        }
+        else
+        {
+            void* data = malloc(paramDataSize);
+            memcpy(data, paramData, paramDataSize);
+            newJob->paramData = data;
+        }
     }
-
+    
     m_JobsInFlight.fetch_add(1, std::memory_order_relaxed);
     if (count == 0)
     {
@@ -193,7 +200,17 @@ void JobScheduler::Execute(Job* job)
 
     JS_ASSERT(job->func.IsValid());
 
-    job->func.Invoke(job, job->paramData);
+    void* data{ nullptr };
+    if (job->paramData)
+    {
+        data = job->paramData;
+    }
+    else
+    {
+        data = (void*)(&job->inlineData[0]);
+    }
+
+    job->func.Invoke(job, data);
     job->jobState.store(EJobState::Complete, std::memory_order_release);
     Finish(job);
 }
@@ -252,6 +269,7 @@ Job* JobScheduler::AllocateJob()
     job->paramData = nullptr;
     job->unfinishedPrereqs.store(0, std::memory_order_relaxed);
     job->jobState.store(EJobState::Created, std::memory_order_relaxed);
+    memset(&job->inlineData[0], 0, JOB_PARAM_BYTE_SIZE);
 
     return job;
 }
@@ -260,6 +278,7 @@ void JobScheduler::FreeJob(Job* job)
 {
     JS_ASSERT(job);
 
+    memset(&job->inlineData[0], 0, JOB_PARAM_BYTE_SIZE);
     if (job->paramData)
     {
         free(job->paramData);

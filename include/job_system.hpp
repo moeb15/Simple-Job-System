@@ -12,6 +12,7 @@ static constexpr u32 MAX_JOB_THREADS{ 32 };
 static constexpr u32 JOB_COUNT_LOG2{ 9 };
 static constexpr u32 GLOBAL_QUEUE_JOB_COUNT_LOG2{ 12 };
 static constexpr u32 JOB_ALLOCATOR_COUNT{ 1 << 16 };
+static constexpr u32 JOB_PARAM_BYTE_SIZE{ 1 << 5 };
 
 struct Job;
 
@@ -35,6 +36,7 @@ struct Job
     std::vector<Job*> dependents{};                          // Jobs that depend on this job
     std::atomic<i32> unfinishedPrereqs{ 0 };                 // atomic counter for remaining dependencies
     std::atomic<EJobState> jobState{ EJobState::Created };   // atomic that signals the state of the job
+    u8 inlineData[JOB_PARAM_BYTE_SIZE];                      // Optional parameter data, if the passed parameter data is less than JOB_PARAM_BYTE_SIZE we use this
 };
 
 /**

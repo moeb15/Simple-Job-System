@@ -6,7 +6,8 @@ namespace
 {
     void JobLeaf(Job* j, void* d)
     {
-        printf("JobLeaf\n");
+        u32 value = *(u32*)d;
+        printf("JobLeaf %d\n", value);
     }
 
     void JobNode(Job* j, void* d)
@@ -15,7 +16,8 @@ namespace
         JobFunction jobFuncLeaf;
         jobFuncLeaf.Bind<&JobLeaf>();
 
-        JobScheduler::Get()->SubmitJob(jobFuncLeaf);
+        u32 test = 10;
+        JobScheduler::Get()->SubmitJob(jobFuncLeaf, {}, &test, sizeof(test));
     }
 
     void JobRoot(Job* j, void* d)

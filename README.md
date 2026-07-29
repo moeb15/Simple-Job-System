@@ -17,7 +17,7 @@ I wanted to gain a deeper understanding of memory ordering, lock-free data struc
 
 | Decision | Rationale |
 |----------|-----------|
-|Fixed-size global queue|The size of the deque is determined at compile time to avoid dynamic allocations, in the case where the global queue is full attempting to submit new jobs will force the main thread to execute jobs until the newly added job can be added.|
+|Fixed-size queues|The size of the deque is determined at compile time to avoid dynamic allocations, in the case where the global queue is full attempting to submit new jobs will force the main thread to execute jobs until the newly added job can be added.|
 |Custom 'TFunction' instead of std::function for job callbacks|I opted for the TFunction because currently this is what I use in my own engine and it works fine, it's lightweight (16 bytes on 64 bit systems) and uses non-type template parameters to store function pointers and pointers to member functions, more details on its implemenation can be found in Game Engine Gems Volume 3 Chapter 13|
 |Contiguous job storage block (65536 jobs)|The contiguous job block is thread_local, meaning each thread has its own copy, each thread also maintains the current index into the block, the rationale again is to avoid having to dynamically allocate a Job object each time, another option is to use a memory pool which would avoid the problem of overwriting a job, however for this project this functions just fine, in my engine Jobs are allocated using the custom dynamic alloctor (TLSF) used for all dynamic allocations so it avoids the issue of overwritten jobs.|
 |Chase-Lev Deque over mutex based queues|Lock-free design avoids contention. The only atomic operations are on the deque's top/bottom indices.|
@@ -65,3 +65,15 @@ void DoWork()
     // if other jobs are present, what can be guaranteed is that jobA will execute before jobB
 }
 ```
+
+## Credits
+
+[Molecular Musings Job System 2.0 Articles](https://blog.molecular-matters.com/2015/08/24/job-system-2-0-lock-free-work-stealing-part-1-basics/)
+
+[André Leite Work-Stealing Deque Articles](https://andreleite.com/posts/2025/deque/work-stealing-deque-part-1-locks-and-contention/)
+
+[Game Engine Architecture by Jason Gregory](https://www.amazon.ca/Engine-Architecture-Third-Jason-Gregory/dp/1138035459)
+
+[Job Systems from Scratch](https://mightyprofessionalgaming.com/tutorials/job-systems-from-scratch)
+
+[Game Engine Gems Volume 3](https://gameenginegems.com/geg3.php)

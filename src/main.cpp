@@ -3,14 +3,17 @@
 #include "tests/test.hpp"
 #include <iostream>
 
-#define NUM_TESTS 100
-#define EMPTY_JOB_TEST 1
-#define JOB_DEPENDENCY_TEST 1
+#define NUM_TESTS 1
+#define EMPTY_JOB_TEST 0
+#define JOB_DEPENDENCY_TEST 0
+#define JOB_NESTING_TEST 1
 
 #if EMPTY_JOB_TEST
 #include "tests/empty_job_test.hpp"
 #elif JOB_DEPENDENCY_TEST
 #include "tests/job_dependency_test.hpp"
+#elif JOB_NESTING_TEST
+#include "tests/job_nesting_test.hpp"
 #endif
 
 ITest* testPtr{ nullptr };
@@ -26,11 +29,14 @@ int main()
 #elif JOB_DEPENDENCY_TEST
     testPtr = new JobDependencyTest();
     testPtr->Initialize();
+#elif JOB_NESTING_TEST
+    testPtr = new JobNestingTest();
+    testPtr->Initialize();
 #endif
 
-    if(testPtr)
+    if (testPtr)
     {
-        for(u32 i = 0; i < NUM_TESTS; i++)
+        for (u32 i = 0; i < NUM_TESTS; i++)
         {
             printf("======================\n");
             printf("Test %d\n\n", i);

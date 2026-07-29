@@ -49,7 +49,7 @@ void JobDependencyTest::Run()
     Job* jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobB });
     Job* jobD = JobScheduler::Get()->SubmitJob(jobFuncD, { jobC });
     
-    JobScheduler::Get()->Wait();
+    while(JobScheduler::Get()->IsBusy()) {}
 
     printf("(A, B, D)->C\n");
 
@@ -58,7 +58,7 @@ void JobDependencyTest::Run()
     jobD = JobScheduler::Get()->SubmitJob(jobFuncD);
     jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobA, jobB, jobD });
 
-    JobScheduler::Get()->Wait();
+    while(JobScheduler::Get()->IsBusy()) {}
 
     printf("(A, B)->(C, D)\n");
 
@@ -67,5 +67,5 @@ void JobDependencyTest::Run()
     jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobA, jobB });
     jobD = JobScheduler::Get()->SubmitJob(jobFuncD, { jobA, jobB });
 
-    JobScheduler::Get()->Wait();
+    while(JobScheduler::Get()->IsBusy()) {}
 }

@@ -88,7 +88,7 @@ Job* JobScheduler::SubmitJob(JobFunction func, std::initializer_list<Job*> prere
             newJob->paramData = data;
         }
     }
-    
+
     m_JobsInFlight.fetch_add(1, std::memory_order_relaxed);
     if (count == 0)
     {
@@ -154,6 +154,7 @@ void JobScheduler::Enqueue(Job* job)
     {
         // we are on the main thread so push to the global queue that workers can steal from,
         // if the global queue is full, have the main thread fetch jobs and execute them
+        job->jobState.store(EJobState::Queued, std::memory_order_release);
         while (!m_GlobalQueue.PushOwner(job))
         {
             if (Job* j = m_GlobalQueue.PopOwner())
@@ -161,8 +162,6 @@ void JobScheduler::Enqueue(Job* job)
                 Execute(j);
             }
         }
-
-        job->jobState.store(EJobState::Queued, std::memory_order_release);
     }
     m_WakeCV.notify_one();
 }
@@ -192,9 +191,14 @@ Job* JobScheduler::FetchJob(i8 index)
 
 void JobScheduler::Execute(Job* job)
 {
-    if (GetJobState(job) != EJobState::Queued)
+    EJobState expected = EJobState::Queued;
+    if (!job->jobState.compare_exchange_strong(
+        expected,
+        EJobState::Running,
+        std::memory_order_acq_rel
+    ))
     {
-        Enqueue(job);
+        JS_ASSERT(expected != EJobState::Created);
         return;
     }
 

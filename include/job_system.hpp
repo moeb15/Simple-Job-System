@@ -47,12 +47,8 @@ struct JobThread
     bool Push(Job* job)
     {
         JS_ASSERT(std::this_thread::get_id() == owner);
-        const bool result = jobQueue.PushOwner(job);
-        if(result)
-        {
-            job->jobState.store(EJobState::Queued, std::memory_order_release);
-        }
-        return result;
+        job->jobState.store(EJobState::Queued, std::memory_order_release);
+        return jobQueue.PushOwner(job);
     }
 
     u32 index{};                                       // JobThread index

@@ -47,7 +47,6 @@ struct JobThread
     bool Push(Job* job)
     {
         JS_ASSERT(std::this_thread::get_id() == owner);
-        job->jobState.store(EJobState::Queued, std::memory_order_release);
         return jobQueue.PushOwner(job);
     }
 

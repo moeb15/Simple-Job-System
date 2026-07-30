@@ -136,6 +136,7 @@ void JobScheduler::Enqueue(Job* job)
 
         // exponential backoff
         u32 backoff{ 0 };
+        job->jobState.store(EJobState::Queued, std::memory_order_release);
         while (!m_JobThreads[index].Push(job))
         {
             if (backoff == 0)

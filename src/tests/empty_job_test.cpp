@@ -4,7 +4,7 @@
 
 namespace
 {
-    constexpr u32 JOB_COUNT{ 1 << 16 };
+    constexpr u32 JOB_COUNT{ 1 << 15 };
 
     void EmptyJob(Job* j = nullptr, void* d = nullptr)
     {

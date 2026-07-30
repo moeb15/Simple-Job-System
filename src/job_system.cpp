@@ -156,7 +156,7 @@ void JobScheduler::Enqueue(Job* job)
         // if the global queue is full, have the main thread fetch jobs and execute them
         while (!m_GlobalQueue.PushOwner(job))
         {
-            if (Job* j = FetchJob(-1))
+            if (Job* j = m_GlobalQueue.PopOwner())
             {
                 Execute(j);
             }

@@ -77,15 +77,10 @@ Job* JobScheduler::SubmitJob(JobFunction func, std::initializer_list<Job*> prere
 
     if (paramData && paramDataSize)
     {
+        JS_ASSERT(paramDataSize < JOB_PARAM_BYTE_SIZE);
         if (paramDataSize <= JOB_PARAM_BYTE_SIZE)
         {
             memcpy(&newJob->inlineData[0], paramData, paramDataSize);
-        }
-        else
-        {
-            void* data = malloc(paramDataSize);
-            memcpy(data, paramData, paramDataSize);
-            newJob->paramData = data;
         }
     }
 
@@ -178,11 +173,9 @@ Job* JobScheduler::FetchJob(i8 index)
     if (Job* job = m_GlobalQueue.Steal()) return job;
 
     // steal from random job thread
-    static thread_local u64 localCounter = SplitMix64(static_cast<u64>(Timer::Get()->Now()));
     for (u32 i = 0; i < m_ThreadCount * 2; i++)
     {
-        u64 randomValue = SplitMix64(++localCounter);
-        u32 v = static_cast<u32>(randomValue % m_ThreadCount);
+        u32 v = RandomWorkerIndex();
         if (v == index) continue;
         if (Job* job = m_JobThreads[v].jobQueue.Steal()) return job;
     }
@@ -206,14 +199,7 @@ void JobScheduler::Execute(Job* job)
     JS_ASSERT(job->func.IsValid());
 
     void* data{ nullptr };
-    if (job->paramData)
-    {
-        data = job->paramData;
-    }
-    else
-    {
-        data = (void*)(&job->inlineData[0]);
-    }
+    data = (void*)(&job->inlineData[0]);
 
     job->func.Invoke(job, data);
     job->jobState.store(EJobState::Complete, std::memory_order_release);
@@ -271,7 +257,6 @@ Job* JobScheduler::AllocateJob()
 
     job->func = {};
     job->dependents.clear();
-    job->paramData = nullptr;
     job->unfinishedPrereqs.store(0, std::memory_order_relaxed);
     job->jobState.store(EJobState::Created, std::memory_order_relaxed);
     memset(&job->inlineData[0], 0, JOB_PARAM_BYTE_SIZE);
@@ -284,10 +269,6 @@ void JobScheduler::FreeJob(Job* job)
     JS_ASSERT(job);
 
     memset(&job->inlineData[0], 0, JOB_PARAM_BYTE_SIZE);
-    if (job->paramData)
-    {
-        free(job->paramData);
-    }
 }
 
 u32 JobScheduler::RandomWorkerIndex()

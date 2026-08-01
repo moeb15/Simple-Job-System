@@ -12,7 +12,7 @@ static constexpr u32 MAX_JOB_THREADS{ 32 };
 static constexpr u32 JOB_COUNT_LOG2{ 9 };
 static constexpr u32 GLOBAL_QUEUE_JOB_COUNT_LOG2{ 12 };
 static constexpr u32 JOB_ALLOCATOR_COUNT{ 1 << 16 };
-static constexpr u32 JOB_PARAM_BYTE_SIZE{ 1 << 5 };
+static constexpr u32 JOB_PARAM_BYTE_SIZE{ 72 };
 
 struct Job;
 
@@ -32,7 +32,6 @@ enum class EJobState : u8
 struct Job
 {
     JobFunction func{};                                      // Job function to execute
-    void* paramData{ nullptr };                              // Optional parameter data, allocates on heap
     std::vector<Job*> dependents{};                          // Jobs that depend on this job
     std::atomic<i32> unfinishedPrereqs{ 0 };                 // atomic counter for remaining dependencies
     std::atomic<EJobState> jobState{ EJobState::Created };   // atomic that signals the state of the job

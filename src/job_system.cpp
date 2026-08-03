@@ -60,10 +60,11 @@ void JobScheduler::Shutdown()
     s_JobScheduler = nullptr;
 }
 
-Job* JobScheduler::SubmitJob(JobFunction func, std::initializer_list<Job*> prerequisites, void* paramData, u32 paramDataSize)
+Job* JobScheduler::SubmitJob(JobFunction func, EJobPriority priority, std::initializer_list<Job*> prerequisites, void* paramData, u32 paramDataSize)
 {
     Job* newJob = AllocateJob();
     newJob->func = func;
+    newJob->priority = priority;
 
     u32 count{ 0 };
     for (Job* prereq : prerequisites)
@@ -151,9 +152,11 @@ void JobScheduler::Enqueue(Job* job)
         // we are on the main thread so push to the global queue that workers can steal from,
         // if the global queue is full, have the main thread fetch jobs and execute them
         job->jobState.store(EJobState::Queued, std::memory_order_release);
-        while (!m_GlobalQueue.PushOwner(job))
+
+        auto& queue = job->priority == EJobPriority::Low ? m_LowGlobalQueue : (job->priority == EJobPriority::Normal ? m_NormalGlobalQueue : m_HighGlobalQueue); 
+        while (!queue.PushOwner(job))
         {
-            if (Job* j = m_GlobalQueue.PopOwner())
+            if (Job* j = queue.PopOwner())
             {
                 Execute(j);
             }
@@ -166,18 +169,24 @@ Job* JobScheduler::FetchJob(i8 index)
 {
     if (index >= 0)
     {
-        if (Job* job = m_JobThreads[index].jobQueue.PopOwner()) return job;
+        if (Job* job = m_JobThreads[index].highQueue.PopOwner()) return job;
+        if (Job* job = m_JobThreads[index].normalQueue.PopOwner()) return job;
+        if (Job* job = m_JobThreads[index].lowQueue.PopOwner()) return job;
     }
 
-    // try stealing from global queue
-    if (Job* job = m_GlobalQueue.Steal()) return job;
+    // try stealing from global queues
+    if (Job* job = m_HighGlobalQueue.Steal()) return job;
+    if (Job* job = m_NormalGlobalQueue.Steal()) return job;
+    if (Job* job = m_LowGlobalQueue.Steal()) return job;
 
     // steal from random job thread
     for (u32 i = 0; i < m_ThreadCount * 2; i++)
     {
         u32 v = RandomWorkerIndex();
         if (v == index) continue;
-        if (Job* job = m_JobThreads[v].jobQueue.Steal()) return job;
+        if (Job* job = m_JobThreads[v].highQueue.Steal()) return job;
+        if (Job* job = m_JobThreads[v].normalQueue.Steal()) return job;
+        if (Job* job = m_JobThreads[v].lowQueue.Steal()) return job;
     }
 
     return nullptr;

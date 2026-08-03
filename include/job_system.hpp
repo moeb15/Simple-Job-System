@@ -12,11 +12,20 @@ static constexpr u32 MAX_JOB_THREADS{ 32 };
 static constexpr u32 JOB_COUNT_LOG2{ 9 };
 static constexpr u32 GLOBAL_QUEUE_JOB_COUNT_LOG2{ 12 };
 static constexpr u32 JOB_ALLOCATOR_COUNT{ 1 << 16 };
-static constexpr u32 JOB_PARAM_BYTE_SIZE{ 72 };
+static constexpr u32 JOB_PARAM_BYTE_SIZE{ 68 };
 
 struct Job;
 
 using JobFunction = TFunction<void(Job*, void*)>;
+
+enum class EJobPriority
+{
+    Low,
+    Normal,
+    High,
+
+    Count
+};
 
 enum class EJobState : u8
 {
@@ -36,6 +45,7 @@ struct Job
     std::atomic<i32> unfinishedPrereqs{ 0 };                 // atomic counter for remaining dependencies
     std::atomic<EJobState> jobState{ EJobState::Created };   // atomic that signals the state of the job
     u8 inlineData[JOB_PARAM_BYTE_SIZE];                      // Optional parameter data, if the passed parameter data is less than JOB_PARAM_BYTE_SIZE we use this
+    EJobPriority priority;                                   // The job priority
 };
 
 /**
@@ -46,12 +56,15 @@ struct JobThread
     bool Push(Job* job)
     {
         JS_ASSERT(std::this_thread::get_id() == owner);
-        return jobQueue.PushOwner(job);
+        TRingDeque<Job, JOB_COUNT_LOG2>& queue = job->priority == EJobPriority::Low ? lowQueue : (job->priority == EJobPriority::Normal ? normalQueue : highQueue); 
+        return queue.PushOwner(job);
     }
 
     u32 index{};                                       // JobThread index
     std::thread workerThread{};                        // Worker thread
-    TRingDeque<Job, JOB_COUNT_LOG2> jobQueue{};        // Circular work-stealing deque of jobs
+    TRingDeque<Job, JOB_COUNT_LOG2> lowQueue{};        // Circular work-stealing deque of jobs, low priority
+    TRingDeque<Job, JOB_COUNT_LOG2> normalQueue{};     // Circular work-stealing deque of jobs, normal priority
+    TRingDeque<Job, JOB_COUNT_LOG2> highQueue{};       // Circular work-stealing deque of jobs, high priority
     std::atomic<std::thread::id> owner;                // Owning thread id
 };
 
@@ -74,10 +87,11 @@ public:
      * 
      * @param func The function that the job will execute
      * @param prerequisites The prerequiste jobs that must complete before the currently submitted job
+     * @param priority The priority of the job, job's of higher priority will be assessed first when a thread is looking for a job to execute
      * @param  paramData Optional parameter data that will be passed to func when the job executes, allocated on heap
      * @param paramDataSize The size of the optional parameter data
      */
-    Job* SubmitJob(JobFunction func, std::initializer_list<Job*> prerequisites = {},
+    Job* SubmitJob(JobFunction func, EJobPriority priority = EJobPriority::Normal, std::initializer_list<Job*> prerequisites = {},
         void* paramData = nullptr, u32 paramDataSize = 0);
     
     /**
@@ -131,6 +145,8 @@ private:
     std::mutex m_SleepMutex;
     std::condition_variable m_WakeCV;
     u32 m_ThreadCount{ 0 };
-    TRingDeque<Job, GLOBAL_QUEUE_JOB_COUNT_LOG2> m_GlobalQueue{};
+    TRingDeque<Job, GLOBAL_QUEUE_JOB_COUNT_LOG2> m_LowGlobalQueue{};
+    TRingDeque<Job, GLOBAL_QUEUE_JOB_COUNT_LOG2> m_NormalGlobalQueue{};
+    TRingDeque<Job, GLOBAL_QUEUE_JOB_COUNT_LOG2> m_HighGlobalQueue{};
     static thread_local i8 s_TLSIndex;
 };

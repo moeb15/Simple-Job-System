@@ -17,7 +17,7 @@ namespace
         jobFuncLeaf.Bind<&JobLeaf>();
 
         u32 test = 10;
-        JobScheduler::Get()->SubmitJob(jobFuncLeaf, {}, &test, sizeof(test));
+        JobScheduler::Get()->SubmitJob(jobFuncLeaf, EJobPriority::Normal, {}, &test, sizeof(test));
     }
 
     void JobRoot(Job* j, void* d)
@@ -27,7 +27,7 @@ namespace
         JobFunction jobFuncNode;
         jobFuncNode.Bind<&JobNode>();
 
-        JobScheduler::Get()->SubmitJob(jobFuncNode);
+        JobScheduler::Get()->SubmitJob(jobFuncNode, EJobPriority::Normal);
     }
 
     JobFunction jobFuncRoot;

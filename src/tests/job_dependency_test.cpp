@@ -45,27 +45,27 @@ void JobDependencyTest::Run()
     printf("A->B->C->D\n");
 
     Job* jobA = JobScheduler::Get()->SubmitJob(jobFuncA);
-    Job* jobB = JobScheduler::Get()->SubmitJob(jobFuncB, { jobA });
-    Job* jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobB });
-    Job* jobD = JobScheduler::Get()->SubmitJob(jobFuncD, { jobC });
-    
-    while(JobScheduler::Get()->IsBusy()) {}
+    Job* jobB = JobScheduler::Get()->SubmitJob(jobFuncB, EJobPriority::Normal, { jobA });
+    Job* jobC = JobScheduler::Get()->SubmitJob(jobFuncC, EJobPriority::Normal, { jobB });
+    Job* jobD = JobScheduler::Get()->SubmitJob(jobFuncD, EJobPriority::Normal, { jobC });
+
+    while (JobScheduler::Get()->IsBusy()) {}
 
     printf("(A, B, D)->C\n");
 
     jobA = JobScheduler::Get()->SubmitJob(jobFuncA);
     jobB = JobScheduler::Get()->SubmitJob(jobFuncB);
     jobD = JobScheduler::Get()->SubmitJob(jobFuncD);
-    jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobA, jobB, jobD });
+    jobC = JobScheduler::Get()->SubmitJob(jobFuncC, EJobPriority::Normal, { jobA, jobB, jobD });
 
-    while(JobScheduler::Get()->IsBusy()) {}
+    while (JobScheduler::Get()->IsBusy()) {}
 
     printf("(A, B)->(C, D)\n");
 
     jobA = JobScheduler::Get()->SubmitJob(jobFuncA);
     jobB = JobScheduler::Get()->SubmitJob(jobFuncB);
-    jobC = JobScheduler::Get()->SubmitJob(jobFuncC, { jobA, jobB });
-    jobD = JobScheduler::Get()->SubmitJob(jobFuncD, { jobA, jobB });
+    jobC = JobScheduler::Get()->SubmitJob(jobFuncC, EJobPriority::High, { jobA, jobB });
+    jobD = JobScheduler::Get()->SubmitJob(jobFuncD, EJobPriority::Low, { jobA, jobB });
 
-    while(JobScheduler::Get()->IsBusy()) {}
+    while (JobScheduler::Get()->IsBusy()) {}
 }

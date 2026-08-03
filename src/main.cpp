@@ -3,10 +3,10 @@
 #include "tests/test.hpp"
 #include <iostream>
 
-#define NUM_TESTS 10
-#define EMPTY_JOB_TEST 0
-#define JOB_DEPENDENCY_TEST 0
-#define JOB_NESTING_TEST 1
+#define NUM_TESTS 100
+#define EMPTY_JOB_TEST 1
+#define JOB_DEPENDENCY_TEST 1
+#define JOB_NESTING_TEST 0
 
 #if EMPTY_JOB_TEST
 #include "tests/empty_job_test.hpp"

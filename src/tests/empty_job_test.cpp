@@ -4,7 +4,7 @@
 
 namespace
 {
-    constexpr u32 JOB_COUNT{ 1 << 16 };
+    constexpr u32 JOB_COUNT{ 1 << 12 };
 
     void EmptyJob(Job* j = nullptr, void* d = nullptr)
     {
@@ -39,6 +39,7 @@ void EmptyJobTest::Run()
         JobScheduler::Get()->SubmitJob(jobFunc);
     }
     
+    u32 counter = 0;
     while(JobScheduler::Get()->IsBusy())
     {
         // do nothing

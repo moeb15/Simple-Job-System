@@ -173,12 +173,6 @@ Job* JobScheduler::FetchJob(i8 index)
         if (Job* job = m_JobThreads[index].normalQueue.PopOwner()) return job;
         if (Job* job = m_JobThreads[index].lowQueue.PopOwner()) return job;
     }
-    else // main thread is calling fetch job
-    {
-        if (Job* job = m_HighGlobalQueue.PopOwner()) return job;
-        if (Job* job = m_NormalGlobalQueue.PopOwner()) return job;
-        if (Job* job = m_LowGlobalQueue.PopOwner()) return job;
-    }
 
     // try stealing from global queues
     if (Job* job = m_HighGlobalQueue.Steal()) return job;
